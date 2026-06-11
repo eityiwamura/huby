@@ -1,0 +1,249 @@
+<% pageTitle = 'Postagens'; activePage = 'posts'; %>
+
+<div class="topbar">
+  <div class="topbar-title">Análise de Postagens</div>
+  <div class="topbar-actions">
+    <select class="form-select" style="width:200px;" id="posts-client">
+      <option value="">Selecione o cliente...</option>
+      <% clients.forEach(function(c) { %>
+        <option value="<%= c.id %>"><%= c.name %></option>
+      <% }) %>
+    </select>
+    <select class="form-select" style="width:140px;" id="posts-period">
+      <option value="30">Últimos 30 dias</option>
+      <option value="7">Últimos 7 dias</option>
+      <option value="60">Últimos 60 dias</option>
+      <option value="90">Últimos 90 dias</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="analyzePosts()">📊 Analisar</button>
+  </div>
+</div>
+
+<div class="page-content">
+  <div id="posts-empty" class="empty-state">
+    <div class="empty-icon">📱</div>
+    <div class="empty-title">Selecione um cliente para analisar postagens</div>
+    <div class="empty-text">A IA identifica padrões, melhores horários e o que performa melhor</div>
+  </div>
+
+  <div id="posts-loading" style="display:none;" class="loading-overlay">
+    <div class="spinner"></div> Coletando dados e analisando com IA...
+  </div>
+
+  <div id="posts-content" style="display:none;">
+
+    <div class="grid-2 gap-16 mb-16">
+      <div class="card">
+        <div class="card-header"><div class="card-title">📊 Diagnóstico geral</div></div>
+        <div class="card-body"><div id="posts-diagnosis" class="diagnosis-text"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">🏆 Ranking de formatos</div></div>
+        <div class="card-body"><canvas id="chart-formats" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid-2 gap-16 mb-16">
+      <div class="card">
+        <div class="card-header"><div class="card-title">🌟 Posts que mais performaram</div></div>
+        <div id="top-posts" class="card-body"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📉 Posts que não performaram</div></div>
+        <div id="worst-posts" class="card-body"></div>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">🔍 Padrões identificados</div></div>
+      <div class="card-body" id="posts-patterns"></div>
+    </div>
+
+    <div class="grid-2 gap-16 mb-16">
+      <div class="card">
+        <div class="card-header"><div class="card-title">⏰ Melhores horários</div></div>
+        <div class="card-body" id="best-times"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📌 Pilares de conteúdo</div></div>
+        <div class="card-body" id="content-pillars"></div>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <div class="card-header">
+        <div class="card-title">📋 Posts do período</div>
+        <div class="flex gap-8">
+          <select class="form-select" style="width:130px;" id="posts-filter-platform" onchange="filterPostCards()">
+            <option value="">Todas redes</option>
+            <option value="instagram_business">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="tiktok">TikTok</option>
+          </select>
+          <select class="form-select" style="width:130px;" id="posts-filter-sort" onchange="filterPostCards()">
+            <option value="reach">Por alcance</option>
+            <option value="likes">Por likes</option>
+            <option value="comments">Por comentários</option>
+            <option value="shares">Por compartilhamentos</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body" id="posts-individual-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">🎯 Plano de ação</div></div>
+      <div class="card-body" id="posts-action-plan"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+var formatsChart = null;
+var allRawPosts = [];
+
+function analyzePosts() {
+  var clientId = document.getElementById('posts-client').value;
+  var days = parseInt(document.getElementById('posts-period').value);
+  if (!clientId) { alert('Selecione um cliente'); return; }
+  var end = new Date().toISOString().split('T')[0];
+  var start = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+  document.getElementById('posts-empty').style.display = 'none';
+  document.getElementById('posts-content').style.display = 'none';
+  document.getElementById('posts-loading').style.display = 'flex';
+  fetch('/api/clients/' + clientId + '/posts-analysis', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ periodStart: start, periodEnd: end })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) throw new Error(data.error);
+    allRawPosts = data.raw_posts || [];
+    var parsed = data.parsed || {};
+    // Parse robusto
+    if (typeof parsed.overall_diagnosis === 'string') {
+      var jm = parsed.overall_diagnosis.match(/\{[\s\S]{200,}\}/);
+      if (jm) { try { var ex = JSON.parse(jm[0]); if (ex.overall_diagnosis) parsed = ex; } catch(e) {} }
+    }
+    parsed.top_posts = parsed.top_posts || [];
+    parsed.worst_posts = parsed.worst_posts || [];
+    parsed.format_ranking = parsed.format_ranking || [];
+    parsed.patterns = parsed.patterns || [];
+    parsed.action_plan = parsed.action_plan || [];
+    parsed.content_pillars = parsed.content_pillars || [];
+    parsed.best_posting_times = parsed.best_posting_times || {};
+    document.getElementById('posts-content').style.display = 'block';
+    renderPosts(parsed);
+    renderPostCards(allRawPosts);
+  }).catch(function(err) { alert('Erro: ' + err.message); })
+  .finally(function() { document.getElementById('posts-loading').style.display = 'none'; });
+}
+
+function renderPosts(p) {
+  document.getElementById('posts-diagnosis').innerHTML = (p.overall_diagnosis || '').replace(/\n/g, '<br>');
+
+  // Gráfico
+  var fr = p.format_ranking || [];
+  if (formatsChart) { formatsChart.destroy(); formatsChart = null; }
+  var ctxEl = document.getElementById('chart-formats');
+  if (ctxEl && fr.length) {
+    formatsChart = new Chart(ctxEl.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: fr.map(function(f) { return f.format; }),
+        datasets: [{ label: 'Engajamento (%)', data: fr.map(function(f) { return f.avg_engagement || 0; }), backgroundColor: ['rgba(91,110,245,0.8)','rgba(34,197,94,0.8)','rgba(245,158,11,0.8)','rgba(239,68,68,0.8)','rgba(168,85,247,0.8)'] }]
+      },
+      options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6b7394' }, grid: { color: '#1f2433' } }, y: { ticks: { color: '#e8eaf0' }, grid: { display: false } } } }
+    });
+  }
+
+  // Top posts
+  var topHtml = '';
+  p.top_posts.forEach(function(post) {
+    topHtml += '<div class="action-item mb-8"><div class="action-priority" style="background:var(--green-dim);color:var(--green);">' + post.rank + '</div><div><div class="action-title">' + (post.type||'Post') + ' — ' + (post.engagement_rate||0) + '% eng.</div><div class="action-reason">' + (post.why_worked||'') + '</div><div class="action-impact mt-4">🔁 ' + (post.replicate||'') + '</div></div></div>';
+  });
+  document.getElementById('top-posts').innerHTML = topHtml || '<div class="text-muted text-sm">Sem dados</div>';
+
+  // Piores posts
+  var worstHtml = '';
+  p.worst_posts.forEach(function(post) {
+    worstHtml += '<div class="action-item mb-8"><div class="action-priority" style="background:var(--red-dim);color:var(--red);">' + post.rank + '</div><div><div class="action-title">' + (post.type||'Post') + ' — ' + (post.engagement_rate||0) + '% eng.</div><div class="action-reason">' + (post.why_failed||'') + '</div><div class="action-impact mt-4" style="color:var(--yellow);">💡 ' + (post.fix||'') + '</div></div></div>';
+  });
+  document.getElementById('worst-posts').innerHTML = worstHtml || '<div class="text-muted text-sm">Sem dados</div>';
+
+  // Padrões
+  var ph = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+  p.patterns.forEach(function(pat) {
+    ph += '<div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;"><div style="font-size:13px;font-weight:600;margin-bottom:6px;">🔍 ' + (pat.pattern||'') + '</div><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">' + (pat.evidence||'') + '</div><div style="font-size:12px;color:var(--accent);">→ ' + (pat.action||'') + '</div></div>';
+  });
+  ph += '</div>';
+  document.getElementById('posts-patterns').innerHTML = ph;
+
+  // Horários
+  var bt = p.best_posting_times;
+  document.getElementById('best-times').innerHTML = '<div class="flex gap-16 mb-12"><div><div class="stat-label">Dias</div><div style="font-size:15px;font-weight:600;color:var(--accent);">' + (bt.weekdays||'—') + '</div></div><div><div class="stat-label">Horários</div><div style="font-size:15px;font-weight:600;color:var(--accent);">' + (bt.times||'—') + '</div></div></div><div class="text-sm text-muted">' + (bt.evidence||'') + '</div>';
+
+  // Pilares
+  var pih = '';
+  p.content_pillars.forEach(function(pillar) {
+    var bc = pillar.performance === 'acima da média' ? 'badge-green' : 'badge-red';
+    pih += '<div class="flex-center gap-8 mb-8" style="padding:10px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="flex:1;font-size:13px;font-weight:500;">' + (pillar.pillar||'') + '</div><span class="badge ' + bc + '">' + (pillar.performance||'') + '</span></div><div class="text-sm text-muted mb-8">' + (pillar.recommendation||'') + '</div>';
+  });
+  document.getElementById('content-pillars').innerHTML = pih || '<div class="text-muted text-sm">Sem dados</div>';
+
+  // Plano de ação
+  var aph = '';
+  p.action_plan.forEach(function(a) {
+    aph += '<div class="action-item mb-8"><div class="action-priority">' + (a.priority||'') + '</div><div><div class="action-title">' + (a.action||'') + '</div><div class="action-reason">' + (a.reason||'') + '</div><div class="action-impact mt-4">📈 ' + (a.expected_impact||'') + '</div></div></div>';
+  });
+  document.getElementById('posts-action-plan').innerHTML = aph || '<div class="text-muted text-sm">Sem plano</div>';
+}
+
+function renderPostCards(posts) {
+  allRawPosts = posts || [];
+  filterPostCards();
+}
+
+function filterPostCards() {
+  var platform = document.getElementById('posts-filter-platform').value;
+  var sortBy = document.getElementById('posts-filter-sort').value;
+  var filtered = allRawPosts.filter(function(p) { return !platform || p.platform === platform; });
+  filtered.sort(function(a, b) {
+    var av = (a.metrics && a.metrics[sortBy]) || a.reach || 0;
+    var bv = (b.metrics && b.metrics[sortBy]) || b.reach || 0;
+    return bv - av;
+  });
+  var picons = { instagram_business:'📸', facebook:'👍', tiktok:'🎵', youtube:'▶️', linkedin:'💼' };
+  var pnames = { instagram_business:'Instagram', facebook:'Facebook', tiktok:'TikTok', youtube:'YouTube', linkedin:'LinkedIn' };
+  var html = '';
+  if (!filtered.length) {
+    html = '<div class="empty-state" style="padding:24px;"><div class="empty-icon">📱</div><div class="empty-title">Nenhum post individual disponível</div><div class="empty-text">O Reportei não entregou dados por post para este período</div></div>';
+  } else {
+    html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">';
+    filtered.forEach(function(post) {
+      var reach = (post.metrics && post.metrics.reach) || post.reach || 0;
+      var eng = (post.metrics && post.metrics.total_interactions) || (post.metrics && post.metrics.likes) || 0;
+      var rate = reach > 0 ? ((eng/reach)*100).toFixed(1) : 0;
+      var sc = rate >= 5 ? 'var(--green)' : rate >= 2 ? 'var(--yellow)' : 'var(--red)';
+      var searchUrl = post.platform === 'instagram_business' ? 'https://www.instagram.com/' + (post.account||'') : post.platform === 'tiktok' ? 'https://www.tiktok.com/@' + (post.account||'') : 'https://www.facebook.com/' + (post.account||'');
+      var cap = (post.caption||'').substring(0,120) + ((post.caption||'').length > 120 ? '...' : '');
+      html += '<div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div class="flex gap-8"><span class="badge badge-accent">' + (picons[post.platform]||'📱') + ' ' + (pnames[post.platform]||post.platform) + '</span><span class="badge badge-muted">' + (post.type||'Post') + '</span></div><div style="font-size:13px;font-weight:700;color:' + sc + ';">' + rate + '%</div></div>';
+      html += '<div style="font-size:12.5px;color:var(--text);line-height:1.5;margin-bottom:10px;min-height:48px;">' + cap + '</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">';
+      [['reach','👁 Alcance'],['views','▶️ Views'],['likes','❤️ Likes'],['comments','💬 Coment.'],['shares','🔁 Compart.'],['saved','🔖 Saves']].forEach(function(m) {
+        var v = (post.metrics && post.metrics[m[0]]) || 0;
+        html += '<div style="background:var(--bg);border-radius:var(--radius-sm);padding:6px;text-align:center;"><div style="font-size:9px;color:var(--text-muted);">' + m[1] + '</div><div style="font-size:13px;font-weight:600;">' + Number(v).toLocaleString('pt-BR') + '</div></div>';
+      });
+      html += '</div>';
+      html += '<a href="' + searchUrl + '" target="_blank" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">🔍 Ver perfil</a>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  document.getElementById('posts-individual-list').innerHTML = html;
+}
+</script>

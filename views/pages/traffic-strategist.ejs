@@ -1,0 +1,298 @@
+<% pageTitle = 'Estrategista de Tráfego'; activePage = 'traffic'; %>
+
+<div class="topbar">
+  <div class="topbar-title">Estrategista de Tráfego Pago</div>
+</div>
+
+<div class="page-content">
+  <div class="card mb-16">
+    <div class="card-header"><div class="card-title">🎯 Defina sua meta</div></div>
+    <div class="card-body">
+      <div class="grid-2 gap-16">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Cliente</label>
+          <select class="form-select" id="ts-client">
+            <option value="">Selecione...</option>
+            <% clients.forEach(function(c) { %>
+              <option value="<%= c.id %>"><%= c.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Período de dados históricos</label>
+          <select class="form-select" id="ts-period">
+            <option value="30">Últimos 30 dias</option>
+            <option value="60">Últimos 60 dias</option>
+            <option value="90">Últimos 90 dias</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2 gap-16 mt-12">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Objetivo principal</label>
+          <select class="form-select" id="ts-objective">
+            <option value="leads">Geração de leads</option>
+            <option value="sales">Vendas / E-commerce</option>
+            <option value="awareness">Awareness / Alcance</option>
+            <option value="app_installs">Instalações de app</option>
+            <option value="local">Tráfego local / visitas à loja</option>
+            <option value="political">Alcance político / eleitoral</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Orçamento mensal disponível (R$)</label>
+          <input type="number" class="form-input" id="ts-budget" placeholder="Ex: 3000">
+        </div>
+      </div>
+      <div class="form-group mt-12">
+        <label class="form-label">Descreva sua meta em detalhes</label>
+        <textarea class="form-textarea" id="ts-goal" rows="3" placeholder="Ex: Quero gerar 80 leads por mês para minha clínica odontológica com orçamento de R$ 3.000. Hoje gasto R$ 1.500 e consigo 30 leads com CPL de R$ 50. Quero reduzir o CPL para R$ 37 e dobrar o volume."></textarea>
+        <div class="form-hint">Quanto mais detalhe, melhor a estratégia. Inclua CPL atual, ROAS atual, principais obstáculos.</div>
+      </div>
+      <button class="btn btn-primary" onclick="generateStrategy()" id="btn-strategy">🤖 Gerar estratégia completa</button>
+    </div>
+  </div>
+
+  <div id="ts-loading" style="display:none;" class="loading-overlay"><div class="spinner"></div> Analisando dados históricos e criando estratégia...</div>
+
+  <div id="ts-content" style="display:none;">
+
+    <!-- Resumo executivo -->
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">📋 Estratégia recomendada</div></div>
+      <div class="card-body">
+        <div id="ts-summary" class="diagnosis-text"></div>
+      </div>
+    </div>
+
+    <!-- Análise da meta -->
+    <div class="card mb-16" id="ts-goal-card">
+      <div class="card-header"><div class="card-title">🎯 Análise da meta</div></div>
+      <div class="card-body" id="ts-goal-analysis"></div>
+    </div>
+
+    <!-- Distribuição de orçamento -->
+    <div class="grid-2 gap-16 mb-16">
+      <div class="card">
+        <div class="card-header"><div class="card-title">💰 Distribuição de orçamento</div></div>
+        <div class="card-body">
+          <canvas id="chart-budget" height="220"></canvas>
+          <div id="ts-budget-list" style="margin-top:12px;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📈 Projeção de resultados</div></div>
+        <div class="card-body">
+          <canvas id="chart-projection" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estrutura de campanhas -->
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">🏗 Estrutura de campanhas</div></div>
+      <div class="card-body" id="ts-campaigns"></div>
+    </div>
+
+    <!-- Configuração de Pixel e Eventos -->
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">⚡ Configuração de Pixel e Eventos de Conversão</div></div>
+      <div class="card-body" id="ts-pixel"></div>
+    </div>
+
+    <!-- Criativos recomendados -->
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">🎨 Criativos recomendados</div></div>
+      <div class="card-body" id="ts-creatives"></div>
+    </div>
+
+    <!-- Checklist de implementação -->
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">✅ Checklist de implementação</div></div>
+      <div class="card-body" id="ts-checklist"></div>
+    </div>
+
+    <!-- Riscos -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">⚠️ Riscos e mitigações</div></div>
+      <div class="card-body" id="ts-risks"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+var budgetChart = null;
+var projectionChart = null;
+
+function generateStrategy() {
+  var clientId = document.getElementById('ts-client').value;
+  var budget = document.getElementById('ts-budget').value;
+  var goal = document.getElementById('ts-goal').value.trim();
+  var objective = document.getElementById('ts-objective').value;
+  var days = parseInt(document.getElementById('ts-period').value);
+
+  if (!clientId) { alert('Selecione um cliente'); return; }
+  if (!budget) { alert('Informe o orçamento'); return; }
+  if (!goal) { alert('Descreva sua meta'); return; }
+
+  var end = new Date().toISOString().split('T')[0];
+  var start = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+
+  document.getElementById('ts-content').style.display = 'none';
+  document.getElementById('ts-loading').style.display = 'flex';
+  document.getElementById('btn-strategy').disabled = true;
+
+  fetch('/api/clients/' + clientId + '/traffic-strategy', {
+    credentials: 'same-origin', method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goal: goal, budget: parseFloat(budget), objective: objective, periodStart: start, periodEnd: end })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) throw new Error(data.error);
+    renderStrategy(data.parsed, parseFloat(budget));
+  }).catch(function(err) { alert('Erro: ' + err.message); })
+  .finally(function() {
+    document.getElementById('ts-loading').style.display = 'none';
+    document.getElementById('btn-strategy').disabled = false;
+  });
+}
+
+function renderStrategy(p, totalBudget) {
+  // Resumo
+  document.getElementById('ts-summary').innerHTML = (p.strategy_summary || '').replace(/\n/g, '<br>');
+
+  // Análise da meta
+  var ga = p.goal_analysis || {};
+  document.getElementById('ts-goal-analysis').innerHTML =
+    '<div class="grid-2 gap-16">' +
+    '<div style="background:var(--bg-hover);border-radius:var(--radius-sm);padding:14px;"><div class="stat-label">Performance atual</div><div style="font-size:13px;margin-top:6px;">' + (ga.current_performance || '—') + '</div></div>' +
+    '<div style="background:var(--bg-hover);border-radius:var(--radius-sm);padding:14px;"><div class="stat-label">Gap para a meta</div><div style="font-size:13px;margin-top:6px;">' + (ga.gap || '—') + '</div></div>' +
+    '</div>' +
+    '<div style="margin-top:12px;background:var(--accent-dim);border:1px solid rgba(91,110,245,0.3);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:var(--accent);">⏱ ' + (ga.feasibility || '') + '</div>';
+
+  // Gráfico de orçamento
+  var bd = p.budget_distribution || [];
+  if (budgetChart) budgetChart.destroy();
+  var ctx1 = document.getElementById('chart-budget').getContext('2d');
+  budgetChart = new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+      labels: bd.map(function(b) { return b.platform; }),
+      datasets: [{ data: bd.map(function(b) { return b.percentage || 0; }), backgroundColor: ['rgba(91,110,245,0.8)','rgba(34,197,94,0.8)','rgba(245,158,11,0.8)','rgba(168,85,247,0.8)'] }]
+    },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#e8eaf0' } } } }
+  });
+
+  var bdHtml = '';
+  bd.forEach(function(b) {
+    bdHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);"><span style="font-size:13px;">' + b.platform + '</span><div class="flex gap-8"><span style="font-size:13px;font-weight:600;color:var(--accent);">R$ ' + (b.amount || Math.round((b.percentage/100)*totalBudget)).toLocaleString('pt-BR') + '</span><span class="badge badge-muted">' + b.percentage + '%</span></div></div>';
+    if (b.justification) bdHtml += '<div style="font-size:11px;color:var(--text-muted);padding:4px 0 8px;">' + b.justification + '</div>';
+  });
+  document.getElementById('ts-budget-list').innerHTML = bdHtml;
+
+  // Gráfico de projeção
+  var proj = p.projections || {};
+  var months = ['Mês 1', 'Mês 2', 'Mês 3'];
+  var leadsData = [proj.month_1 && proj.month_1.leads || 0, proj.month_2 && proj.month_2.leads || 0, proj.month_3 && proj.month_3.leads || 0];
+  var cplData = [proj.month_1 && proj.month_1.cpl || 0, proj.month_2 && proj.month_2.cpl || 0, proj.month_3 && proj.month_3.cpl || 0];
+  if (projectionChart) projectionChart.destroy();
+  var ctx2 = document.getElementById('chart-projection').getContext('2d');
+  projectionChart = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Leads', data: leadsData, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, yAxisID: 'y' },
+        { label: 'CPL (R$)', data: cplData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', tension: 0.4, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { ticks: { color: '#6b7394' }, grid: { color: '#1f2433' } },
+        y: { ticks: { color: '#6b7394' }, grid: { color: '#1f2433' } },
+        y1: { position: 'right', ticks: { color: '#6b7394' }, grid: { display: false } }
+      },
+      plugins: { legend: { labels: { color: '#e8eaf0' } } }
+    }
+  });
+
+  // Estrutura de campanhas
+  var campHtml = '';
+  (p.campaign_structure || []).forEach(function(platform) {
+    campHtml += '<div style="margin-bottom:20px;"><div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">' + platform.platform + '</div>';
+    (platform.campaigns || []).forEach(function(camp) {
+      campHtml += '<div style="margin-bottom:14px;background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;">';
+      campHtml += '<div style="font-size:13px;font-weight:600;margin-bottom:4px;">📁 ' + camp.name + '</div>';
+      campHtml += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Objetivo: ' + camp.objective + ' | Budget: R$ ' + (camp.budget || 0) + '</div>';
+      (camp.adsets || []).forEach(function(adset) {
+        campHtml += '<div style="margin-left:16px;padding:8px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:6px;">';
+        campHtml += '<div style="font-size:12px;font-weight:500;">📂 ' + adset.name + '</div>';
+        campHtml += '<div style="font-size:11px;color:var(--text-muted);">Público: ' + adset.audience + '</div>';
+        campHtml += '<div style="font-size:11px;color:var(--text-muted);">Budget: R$ ' + (adset.budget || 0) + ' | Formato: ' + adset.format + '</div>';
+        campHtml += '</div>';
+      });
+      campHtml += '</div>';
+    });
+    campHtml += '</div>';
+  });
+  document.getElementById('ts-campaigns').innerHTML = campHtml || '<div class="text-muted">Nenhuma estrutura definida</div>';
+
+  // Pixel setup
+  var pixelHtml = '';
+  (p.pixel_setup || []).forEach(function(setup) {
+    var priorityColor = setup.priority === 'crítico' ? 'badge-red' : 'badge-yellow';
+    pixelHtml += '<div style="margin-bottom:16px;background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;">';
+    pixelHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="font-size:14px;font-weight:600;">' + setup.platform + '</div><span class="badge ' + priorityColor + '">' + setup.priority + '</span></div>';
+    pixelHtml += '<div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Passos de configuração:</div>';
+    pixelHtml += '<ol style="margin:0;padding-left:18px;">';
+    (setup.steps || []).forEach(function(step) {
+      pixelHtml += '<li style="font-size:12px;margin-bottom:4px;line-height:1.5;">' + step + '</li>';
+    });
+    pixelHtml += '</ol>';
+    if (setup.events && setup.events.length) {
+      pixelHtml += '<div style="margin-top:10px;"><div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Eventos a configurar:</div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
+      setup.events.forEach(function(ev) {
+        pixelHtml += '<span class="badge badge-accent" style="font-family:monospace;">' + ev + '</span>';
+      });
+      pixelHtml += '</div></div>';
+    }
+    pixelHtml += '</div>';
+  });
+  document.getElementById('ts-pixel').innerHTML = pixelHtml || '<div class="text-muted">Nenhuma configuração definida</div>';
+
+  // Criativos
+  var creativeHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+  (p.creative_recommendations || []).forEach(function(cr) {
+    creativeHtml += '<div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;">';
+    creativeHtml += '<div style="display:flex;gap-8;align-items:center;margin-bottom:8px;"><span class="badge badge-accent">' + cr.platform + '</span><span class="badge badge-muted">' + cr.format + '</span></div>';
+    creativeHtml += '<div style="font-size:12px;font-weight:500;margin-bottom:4px;">Hook: <span style="color:var(--text-muted);">' + (cr.hook || '') + '</span></div>';
+    creativeHtml += '<div style="font-size:12px;font-weight:500;margin-bottom:4px;">CTA: <span style="color:var(--text-muted);">' + (cr.cta || '') + '</span></div>';
+    if (cr.based_on) creativeHtml += '<div style="font-size:11px;color:var(--accent);margin-top:6px;">📊 ' + cr.based_on + '</div>';
+    creativeHtml += '</div>';
+  });
+  creativeHtml += '</div>';
+  document.getElementById('ts-creatives').innerHTML = creativeHtml;
+
+  // Checklist
+  var checkHtml = '';
+  (p.implementation_checklist || []).forEach(function(week) {
+    checkHtml += '<div style="margin-bottom:14px;"><div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px;">Semana ' + week.week + '</div>';
+    (week.tasks || []).forEach(function(task) {
+      checkHtml += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><input type="checkbox" style="margin-top:3px;accent-color:var(--accent);"><span style="font-size:13px;">' + task + '</span></div>';
+    });
+    checkHtml += '</div>';
+  });
+  document.getElementById('ts-checklist').innerHTML = checkHtml || '<div class="text-muted">Sem tarefas definidas</div>';
+
+  // Riscos
+  var risksHtml = '';
+  (p.risks || []).forEach(function(r) {
+    risksHtml += '<div style="display:flex;gap:12px;padding:10px;background:var(--yellow-dim);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);margin-bottom:8px;"><div style="font-size:16px;">⚠️</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px;">' + r.risk + '</div><div style="font-size:12px;color:var(--text-muted);">Mitigação: ' + (r.mitigation || '') + '</div></div></div>';
+  });
+  document.getElementById('ts-risks').innerHTML = risksHtml || '<div class="text-muted">Nenhum risco identificado</div>';
+
+  document.getElementById('ts-content').style.display = 'block';
+  document.getElementById('ts-content').scrollIntoView({ behavior: 'smooth' });
+}
+</script>

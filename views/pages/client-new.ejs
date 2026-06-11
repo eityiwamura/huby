@@ -1,0 +1,128 @@
+<% pageTitle = 'Novo Cliente'; activePage = 'clients'; %>
+
+<div class="topbar">
+  <a href="/clients" style="color:var(--text-muted);text-decoration:none;font-size:13px;">← Clientes</a>
+  <div class="topbar-title" style="margin-left:12px;">Novo Cliente</div>
+</div>
+
+<div class="page-content">
+  <div class="card" style="max-width:680px;">
+    <div class="card-header"><div class="card-title">Dados do cliente</div></div>
+    <div class="card-body">
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div style="background:var(--red-dim);border:1px solid var(--red);color:var(--red);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;"><%= error %></div>
+      <% } %>
+
+      <form method="POST" action="/clients">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Nome *</label>
+            <input type="text" name="name" class="form-input" placeholder="Nome do cliente" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Setor *</label>
+            <select name="sector" class="form-select" required onchange="togglePolitical(this.value)">
+              <option value="">Selecione...</option>
+              <option value="clinica">Clínica</option>
+              <option value="odontologia">Odontologia</option>
+              <option value="ecommerce">E-commerce</option>
+              <option value="infoproduto">Infoproduto</option>
+              <option value="varejo_local">Varejo Local</option>
+              <option value="advocacia">Advocacia</option>
+              <option value="imobiliaria">Imobiliária</option>
+              <option value="educacao">Educação</option>
+              <option value="alimentacao">Alimentação</option>
+              <option value="beleza">Beleza</option>
+              <option value="politico">Político</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tipo de negócio</label>
+          <input type="text" name="business_type" class="form-input" placeholder="Ex: Clínica de estética com foco em laser e pele">
+          <div class="form-hint">Quanto mais detalhe, melhor a análise da IA</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Site (para análise PageSpeed)</label>
+          <input type="text" name="website_url" class="form-input" placeholder="https://seusite.com.br">
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Cidade</label>
+            <input type="text" name="city" class="form-input" placeholder="Taubaté">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <input type="text" name="state" class="form-input" placeholder="SP" maxlength="2">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">WhatsApp (alertas)</label>
+            <input type="text" name="phone" class="form-input" placeholder="5512988134317">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ticket médio (R$)</label>
+            <input type="number" name="avg_ticket" class="form-input" placeholder="Deixe em branco para IA sugerir">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Projeto no Reportei (ID)</label>
+          <input type="number" name="reportei_project_id" class="form-input" placeholder="ID do projeto no Reportei">
+          <div class="form-hint">Encontre o ID na URL do projeto no Reportei</div>
+        </div>
+
+        <div id="political-fields" style="display:none;border-top:1px solid var(--border);margin-top:8px;padding-top:16px;">
+          <div class="form-group">
+            <label class="form-label" style="color:var(--purple);">⚖️ Dados políticos</label>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Mandato</label>
+              <select name="political_mandate" class="form-select">
+                <option value="vereador">Vereador(a)</option>
+                <option value="deputado_estadual">Deputado(a) Estadual</option>
+                <option value="deputado_federal">Deputado(a) Federal</option>
+                <option value="senador">Senador(a)</option>
+                <option value="prefeito">Prefeito(a)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Próxima eleição (ano)</label>
+              <input type="number" name="political_next_election" class="form-input" value="2026">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Partido</label>
+            <input type="text" name="political_party" class="form-input" placeholder="Ex: PSD, PT, MDB...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Principais bandeiras</label>
+            <textarea name="political_causes" class="form-textarea" placeholder="Ex: Saúde pública, segurança, infraestrutura..." rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Base eleitoral</label>
+            <textarea name="political_base_description" class="form-textarea" placeholder="Ex: Bairros X, Y e Z, classe C/D..." rows="2"></textarea>
+          </div>
+        </div>
+
+        <div class="flex gap-8" style="margin-top:8px;">
+          <button type="submit" class="btn btn-primary">Criar cliente</button>
+          <a href="/clients" class="btn btn-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePolitical(val) {
+  document.getElementById('political-fields').style.display = val === 'politico' ? 'block' : 'none';
+}
+</script>

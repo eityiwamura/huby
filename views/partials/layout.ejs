@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — ' : '' %><%= appName %></title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>⚡ <%= appName %></h1>
+      <span>Marketing Intelligence</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Geral</div>
+        <a href="/" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a href="/clients" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'clients' ? 'active' : '' %>">
+          <span class="icon">👥</span> Clientes
+        </a>
+        <a href="/alerts" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'alerts' ? 'active' : '' %>">
+          <span class="icon">🔔</span> Alertas
+          <span class="nav-badge" id="alerts-count" style="display:none">0</span>
+        </a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Análise</div>
+        <a href="/posts" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'posts' ? 'active' : '' %>">
+          <span class="icon">📱</span> Postagens
+        </a>
+        <a href="/traffic-strategist" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'traffic' ? 'active' : '' %>">
+          <span class="icon">🎯</span> Tráfego Pago
+        </a>
+        <a href="/reports" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'reports' ? 'active' : '' %>">
+          <span class="icon">📈</span> Relatórios
+        </a>
+      </div>
+      <% if (user && user.role === 'admin') { %>
+      <div class="nav-section">
+        <div class="nav-label">Sistema</div>
+        <a href="/settings" class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'settings' ? 'active' : '' %>">
+          <span class="icon">⚙️</span> Configurações
+        </a>
+      </div>
+      <% } %>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><%= user.name.charAt(0).toUpperCase() %></div>
+        <div>
+          <div class="user-name"><%= user.name %></div>
+          <div class="user-role"><%= user.role %></div>
+        </div>
+      </div>
+      <form action="/logout" method="POST" style="padding:0 8px 4px;">
+        <button type="submit" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">Sair</button>
+      </form>
+    </div>
+  </aside>
+  <div class="main-content">
+    <%- body %>
+  </div>
+</div>
+<script>
+fetch('/api/alerts?resolved=false&severity=critical')
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.alerts && d.alerts.length > 0) {
+      var badge = document.getElementById('alerts-count');
+      if (badge) { badge.textContent = d.alerts.length; badge.style.display = 'block'; }
+    }
+  }).catch(function(){});
+</script>
+</body>
+</html>

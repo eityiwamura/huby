@@ -1,0 +1,73 @@
+<% pageTitle = 'Dashboard'; activePage = 'dashboard'; %>
+
+<div class="topbar">
+  <div class="topbar-title">Dashboard</div>
+  <div class="topbar-actions">
+    <a href="/clients" class="btn btn-secondary btn-sm">Ver todos</a>
+    <a href="/clients/new" class="btn btn-primary btn-sm">+ Novo cliente</a>
+  </div>
+</div>
+
+<div class="page-content">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Clientes ativos</div>
+      <div class="stat-value accent"><%= stats.total_clients %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alertas críticos</div>
+      <div class="stat-value <%= parseInt(stats.critical_alerts) > 0 ? 'red' : 'green' %>"><%= stats.critical_alerts %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alertas pendentes</div>
+      <div class="stat-value <%= parseInt(stats.total_alerts) > 5 ? 'yellow' : 'green' %>"><%= stats.total_alerts %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Análises esta semana</div>
+      <div class="stat-value accent"><%= stats.analyses_this_week %></div>
+    </div>
+  </div>
+
+  <div class="flex-center gap-8 mb-16" style="justify-content:space-between;margin-top:8px;">
+    <h2 style="font-size:16px;font-weight:600;">Clientes</h2>
+    <input type="text" class="form-input" style="width:200px;" placeholder="Buscar cliente..." oninput="filterClients(this.value)">
+  </div>
+
+  <% if (clients.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">👥</div>
+      <div class="empty-title">Nenhum cliente ainda</div>
+      <div class="empty-text"><a href="/clients/new" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Adicionar primeiro cliente</a></div>
+    </div>
+  <% } else { %>
+    <div class="clients-grid" id="clients-grid">
+      <% clients.forEach(function(c) { %>
+        <a href="/clients/<%= c.id %>" class="client-card sector-<%= c.sector %>">
+          <div class="client-name"><%= c.name %></div>
+          <div class="client-sector"><%= c.sector %></div>
+          <div class="client-meta">
+            <% if (parseInt(c.active_integrations) > 0) { %>
+              <span class="badge badge-accent"><%= c.active_integrations %> redes</span>
+            <% } %>
+            <% if (parseInt(c.critical_alerts) > 0) { %>
+              <span class="badge badge-red">⚠️ <%= c.critical_alerts %></span>
+            <% } else if (parseInt(c.pending_alerts) > 0) { %>
+              <span class="badge badge-yellow"><%= c.pending_alerts %> alertas</span>
+            <% } else { %>
+              <span class="badge badge-green">Saudável</span>
+            <% } %>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<script>
+function filterClients(q) {
+  document.querySelectorAll('#clients-grid .client-card').forEach(function(c) {
+    var name = c.querySelector('.client-name');
+    if (name) c.style.display = name.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+</script>

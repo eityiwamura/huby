@@ -1,0 +1,56 @@
+<% pageTitle = 'Alertas'; activePage = 'alerts'; %>
+
+<div class="topbar">
+  <div class="topbar-title">Alertas</div>
+  <div class="topbar-actions">
+    <select class="form-select" style="width:160px;" id="filter-severity" onchange="loadAlerts()">
+      <option value="">Todas severidades</option>
+      <option value="critical">🔴 Críticos</option>
+      <option value="warning">🟡 Atenção</option>
+      <option value="info">🟢 Informativos</option>
+    </select>
+    <select class="form-select" style="width:140px;" id="filter-resolved" onchange="loadAlerts()">
+      <option value="false">Pendentes</option>
+      <option value="true">Resolvidos</option>
+      <option value="">Todos</option>
+    </select>
+  </div>
+</div>
+
+<div class="page-content">
+  <div class="card">
+    <div id="alerts-container">
+      <div class="loading-overlay"><div class="spinner"></div> Carregando alertas...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function loadAlerts() {
+  var severity = document.getElementById('filter-severity').value;
+  var resolved = document.getElementById('filter-resolved').value;
+  var url = '/api/alerts?';
+  if (severity) url += 'severity=' + severity + '&';
+  if (resolved !== '') url += 'resolved=' + resolved;
+  document.getElementById('alerts-container').innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Carregando...</div>';
+  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    var alerts = data.alerts || [];
+    if (!alerts.length) {
+      document.getElementById('alerts-container').innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Nenhum alerta</div></div>';
+      return;
+    }
+    var html = '';
+    alerts.forEach(function(a) {
+      html += '<div class="alert-item"><div class="alert-dot ' + a.severity + '"></div><div class="alert-content"><div class="flex-center gap-8"><div class="alert-title">' + a.title + '</div><a href="/clients/' + a.client_id + '" class="badge badge-muted" style="text-decoration:none;">' + a.client_name + '</a></div><div class="alert-message">' + a.message + '</div>' + (a.ai_diagnosis ? '<div class="alert-ai">📋 ' + a.ai_diagnosis + '</div>' : '') + (a.ai_action ? '<div class="alert-action">🎯 ' + a.ai_action + '</div>' : '') + '<div class="text-sm text-muted mt-4">' + new Date(a.created_at).toLocaleString('pt-BR') + '</div></div>' + (!a.resolved ? '<button class="btn btn-success btn-sm" onclick="resolveAlert(' + a.id + ', this)">✓ Resolver</button>' : '<span class="badge badge-green">Resolvido</span>') + '</div>';
+    });
+    document.getElementById('alerts-container').innerHTML = html;
+  });
+}
+
+function resolveAlert(id, btn) {
+  btn.disabled = true;
+  fetch('/api/alerts/' + id + '/resolve', { credentials: 'same-origin', method: 'PUT' }).then(function() { btn.closest('.alert-item').remove(); });
+}
+
+loadAlerts();
+</script>

@@ -1,0 +1,540 @@
+<% pageTitle = client.name; activePage = 'clients'; %>
+
+<div class="topbar">
+  <a href="/clients" style="color:var(--text-muted);text-decoration:none;font-size:13px;">← Clientes</a>
+  <div class="topbar-title" style="margin-left:12px;"><%= client.name %></div>
+  <div class="topbar-actions">
+    <a href="/clients/<%= client.id %>/edit" class="btn btn-secondary btn-sm">✏️ Editar</a>
+    <button class="btn btn-secondary btn-sm" onclick="syncReportei()">🔄 Sync</button>
+    <button class="btn btn-primary btn-sm" onclick="runAnalysis('full')">🤖 Analisar</button>
+  </div>
+</div>
+
+<div class="page-content">
+
+  <div class="card mb-16">
+    <div class="card-body">
+      <div class="flex-center gap-8" style="flex-wrap:wrap;">
+        <span class="badge badge-accent"><%= client.sector %></span>
+        <% if (client.sector === 'politico' && client.political_mandate) { %>
+          <span class="badge badge-purple">⚖️ <%= client.political_mandate %></span>
+        <% } %>
+        <% if (client.city) { %>
+          <span class="badge badge-muted"><%= client.city %><% if(client.state){ %>, <%= client.state %><% } %></span>
+        <% } %>
+        <% if (client.avg_ticket) { %>
+          <span class="badge badge-green" style="margin-left:auto;">Ticket médio: R$ <%= parseFloat(client.avg_ticket).toLocaleString('pt-BR') %></span>
+        <% } %>
+        <% if (client.website_url) { %>
+          <a href="<%= client.website_url %>" target="_blank" class="badge badge-muted">🌐 Site</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-analysis', this)">🤖 Análise IA</button>
+    <button class="tab-btn" onclick="switchTab('tab-pagespeed', this)">🚀 PageSpeed</button>
+    <button class="tab-btn" onclick="switchTab('tab-integrations', this)">🔗 Integrações</button>
+    <button class="tab-btn" onclick="switchTab('tab-chat', this)">💬 Chat</button>
+    <button class="tab-btn" onclick="switchTab('tab-history', this)">📋 Histórico</button>
+    <button class="tab-btn" onclick="switchTab('tab-alerts', this)">🔔 Alertas</button>
+  </div>
+
+  <!-- ANÁLISE -->
+  <div class="tab-content active" id="tab-analysis">
+    <div class="card mb-16">
+      <div class="card-body">
+        <div class="grid-2 gap-16">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Tipo de análise</label>
+            <select class="form-select" id="analysis-type">
+              <option value="full">📊 Análise completa</option>
+              <option value="paid_traffic">💰 Tráfego pago</option>
+              <option value="organic">📱 Orgânico / Redes sociais</option>
+              <option value="seo_gmb">🔍 SEO + Google Meu Negócio</option>
+              <option value="cross_channel">🔀 Visão integrada</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Período</label>
+            <select class="form-select" id="analysis-period">
+              <option value="30">Últimos 30 dias</option>
+              <option value="7">Últimos 7 dias</option>
+              <option value="60">Últimos 60 dias</option>
+              <option value="90">Últimos 90 dias</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-12">
+          <button class="btn btn-primary" onclick="runAnalysis(null)" id="btn-analyze">🤖 Gerar análise com IA</button>
+        </div>
+      </div>
+    </div>
+    <div id="analysis-loading" style="display:none;" class="loading-overlay"><div class="spinner"></div> Analisando com IA — pode levar até 60 segundos...</div>
+    <div id="analysis-result" style="display:none;"></div>
+  </div>
+
+  <!-- PAGESPEED -->
+  <div class="tab-content" id="tab-pagespeed">
+    <div class="card mb-16">
+      <div class="card-body">
+        <div class="flex-center gap-12" style="flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div class="form-label">URL para análise</div>
+            <input type="text" class="form-input" id="pagespeed-url" value="<%= client.website_url || '' %>" placeholder="https://seusite.com.br">
+          </div>
+          <div style="padding-top:20px;">
+            <button class="btn btn-primary" onclick="runPageSpeed()" id="btn-pagespeed">🚀 Analisar Mobile + Desktop</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="pagespeed-loading" style="display:none;" class="loading-overlay"><div class="spinner"></div> Analisando com Google PageSpeed + IA...</div>
+    <div id="pagespeed-result" style="display:none;"></div>
+  </div>
+
+  <!-- INTEGRAÇÕES -->
+  <div class="tab-content" id="tab-integrations">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Redes e plataformas conectadas</div>
+        <button class="btn btn-secondary btn-sm" onclick="syncReportei()">🔄 Sincronizar</button>
+      </div>
+      <div class="card-body" id="integrations-list">
+        <div class="loading-overlay"><div class="spinner"></div> Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="tab-content" id="tab-chat">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Chat com IA — <%= client.name %></div>
+        <button class="btn btn-secondary btn-sm" onclick="clearChat()">🗑 Nova conversa</button>
+      </div>
+      <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-message assistant">
+            <div class="message-bubble">Olá! Sou seu especialista de marketing digital para <strong><%= client.name %></strong>. Tenho contexto completo do setor, integrações e benchmarks. O que quer analisar?</div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <textarea class="chat-input" id="chat-input" rows="1" placeholder="Pergunte qualquer coisa sobre este cliente..." onkeydown="handleChatKey(event)"></textarea>
+          <button class="btn btn-primary" onclick="sendChat()" id="btn-chat-send">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="tab-content" id="tab-history">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Histórico de análises</div></div>
+      <div id="history-content" class="card-body">
+        <div class="loading-overlay"><div class="spinner"></div> Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div class="tab-content" id="tab-alerts">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Alertas do cliente</div></div>
+      <div id="client-alerts-list">
+        <div class="loading-overlay"><div class="spinner"></div> Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var CLIENT_ID = <%= client.id %>;
+var chatSessionId = null;
+
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'tab-integrations') loadIntegrations();
+  if (tabId === 'tab-history') loadHistory();
+  if (tabId === 'tab-alerts') loadAlerts();
+}
+
+function runAnalysis(forceType) {
+  var atype = forceType || document.getElementById('analysis-type').value;
+  var days = parseInt(document.getElementById('analysis-period').value);
+  var end = new Date().toISOString().split('T')[0];
+  var start = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+  document.getElementById('analysis-result').style.display = 'none';
+  document.getElementById('analysis-loading').style.display = 'flex';
+  var btn = document.getElementById('btn-analyze');
+  if (btn) btn.disabled = true;
+  fetch('/api/clients/' + CLIENT_ID + '/analyze', {
+    credentials: 'same-origin', method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ analysisType: atype, periodStart: start, periodEnd: end })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.error) throw new Error(data.error);
+    renderAnalysis(data.parsed);
+  }).catch(function(err) {
+    alert('Erro: ' + err.message);
+  }).finally(function() {
+    document.getElementById('analysis-loading').style.display = 'none';
+    if (btn) btn.disabled = false;
+  });
+}
+
+function safeArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') { try { return JSON.parse(val); } catch(e) { return []; } }
+  return [];
+}
+
+function renderAnalysis(p) {
+  var urgColors = { imediato: 'badge-red', esta_semana: 'badge-yellow', este_mes: 'badge-muted' };
+  var urgLabels = { imediato: 'Imediato', esta_semana: 'Esta semana', este_mes: 'Este mês' };
+  var score = p.score || p.overall_score;
+  var scoreClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-mid' : 'score-low';
+
+  var html = '<div class="card"><div class="card-header">';
+  html += '<div class="card-title">Resultado da análise</div>';
+  if (score) {
+    html += '<div class="score-circle ' + scoreClass + '"><span>' + score + '</span><span style="font-size:10px;font-weight:400;">/100</span></div>';
+  }
+  html += '</div><div class="card-body">';
+
+  // Diagnóstico
+  if (p.diagnosis) {
+    html += '<div class="analysis-section"><h3>Diagnóstico</h3><div class="diagnosis-text">' + p.diagnosis.replace(/\n/g, '<br>') + '</div></div>';
+  }
+
+  // Ranking de canais (cross-channel)
+  var channelRanking = safeArray(p.channel_ranking);
+  if (channelRanking.length) {
+    html += '<div class="analysis-section"><h3>📊 Ranking de canais</h3>';
+    channelRanking.forEach(function(c) {
+      var sc = c.score || 0;
+      var scClass = sc >= 70 ? 'badge-green' : sc >= 40 ? 'badge-yellow' : 'badge-red';
+      html += '<div class="action-item">';
+      html += '<div class="action-priority" style="width:38px;font-size:11px;flex-shrink:0;">' + sc + '</div>';
+      html += '<div style="flex:1;"><div class="action-title">' + c.channel + '</div>';
+      html += '<div class="action-reason">' + (c.contribution || '') + '</div>';
+      if (c.notes) html += '<div class="action-impact mt-4">' + c.notes + '</div>';
+      html += '</div>';
+      html += '<span class="badge ' + scClass + ' ml-auto" style="align-self:flex-start;flex-shrink:0;">' + sc + '/100</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Pontos de atenção
+  var attentionPoints = safeArray(p.attention_points);
+  if (attentionPoints.length) {
+    html += '<div class="analysis-section"><h3>⚠️ Pontos de atenção</h3>';
+    attentionPoints.forEach(function(pt) {
+      html += '<div class="action-item"><div class="action-priority">' + (pt.priority || '') + '</div>';
+      html += '<div><div class="action-title">' + (pt.title || '') + '</div>';
+      html += '<div class="action-reason">' + (pt.description || '') + '</div>';
+      if (pt.financial_impact) html += '<div class="action-impact">💸 ' + pt.financial_impact + '</div>';
+      if (pt.electoral_impact) html += '<div class="action-impact">🗳️ ' + pt.electoral_impact + '</div>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  // O que está funcionando
+  var workingWell = safeArray(p.working_well);
+  if (workingWell.length) {
+    html += '<div class="analysis-section"><h3>✅ O que está funcionando</h3>';
+    workingWell.forEach(function(w) {
+      html += '<div class="action-item"><div class="action-priority" style="background:var(--green-dim);color:var(--green);">✓</div>';
+      html += '<div><div class="action-title">' + (w.title || '') + '</div>';
+      html += '<div class="action-reason">' + (w.description || '') + '</div></div></div>';
+    });
+    html += '</div>';
+  }
+
+  // Análise de funil
+  if (p.funnel_analysis) {
+    var f = p.funnel_analysis;
+    html += '<div class="analysis-section"><h3>🔀 Análise de funil</h3>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    var funnelItems = [
+      { key: 'awareness', label: '👁 Awareness' },
+      { key: 'consideration', label: '🤔 Consideração' },
+      { key: 'conversion', label: '✅ Conversão' },
+      { key: 'retention', label: '❤️ Retenção' }
+    ];
+    funnelItems.forEach(function(fi) {
+      if (f[fi.key]) {
+        html += '<div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;">';
+        html += '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">' + fi.label + '</div>';
+        html += '<div style="font-size:12px;color:var(--text);">' + f[fi.key].substring(0, 200) + '...</div>';
+        html += '</div>';
+      }
+    });
+    html += '</div>';
+    if (f.biggest_gap) {
+      html += '<div style="margin-top:10px;background:var(--red-dim);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);padding:10px;">';
+      html += '<div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:4px;">🎯 Maior gap</div>';
+      html += '<div style="font-size:12px;color:var(--text);">' + f.biggest_gap + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Plano de ação
+  var actionPlan = safeArray(p.action_plan);
+  if (actionPlan.length) {
+    html += '<div class="analysis-section"><h3>🎯 Plano de ação</h3>';
+    actionPlan.forEach(function(a) {
+      var urg = urgColors[a.urgency] || 'badge-muted';
+      var urgLbl = urgLabels[a.urgency] || (a.urgency || '');
+      html += '<div class="action-item"><div class="action-priority">' + (a.priority || '') + '</div>';
+      html += '<div style="flex:1;"><div class="flex-center gap-8">';
+      html += '<div class="action-title">' + (a.action || '') + '</div>';
+      html += '<span class="badge ' + urg + ' ml-auto" style="font-size:10px;flex-shrink:0;">' + urgLbl + '</span></div>';
+      if (a.reason) html += '<div class="action-reason mt-4">' + a.reason + '</div>';
+      if (a.expected_impact) html += '<div class="action-impact mt-4">📈 ' + a.expected_impact + '</div>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  // Projeção
+  if (p.projection) {
+    html += '<div class="analysis-section"><h3>📈 Projeção 30 dias</h3>';
+    html += '<div class="diagnosis-text">' + p.projection.replace(/\n/g, '<br>') + '</div></div>';
+  }
+
+  html += '</div></div>';
+
+  var el = document.getElementById('analysis-result');
+  el.innerHTML = html;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+// PAGESPEED
+function runPageSpeed() {
+  var url = document.getElementById('pagespeed-url').value.trim();
+  if (!url) { alert('Informe a URL do site'); return; }
+  document.getElementById('pagespeed-result').style.display = 'none';
+  document.getElementById('pagespeed-loading').style.display = 'flex';
+  document.getElementById('btn-pagespeed').disabled = true;
+  fetch('/api/clients/' + CLIENT_ID + '/pagespeed', {
+    credentials: 'same-origin', method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: url })
+  }).then(function(r) {
+    if (r.status === 302 || r.redirected) { window.location.href = '/login'; return null; }
+    return r.json();
+  }).then(function(data) {
+    if (!data) return;
+    if (data.error) throw new Error(data.error);
+    renderPageSpeed(data);
+  }).catch(function(err) { alert('Erro PageSpeed: ' + err.message); })
+  .finally(function() {
+    document.getElementById('pagespeed-loading').style.display = 'none';
+    document.getElementById('btn-pagespeed').disabled = false;
+  });
+}
+
+function renderPageSpeedPanel(label, psData) {
+  var scores = psData.scores || {};
+  var metrics = psData.metrics || {};
+  var html = '<div class="card-body"><div class="stats-grid">';
+  [['performance','Performance'],['accessibility','Acessibilidade'],['best_practices','Boas Práticas'],['seo','SEO']].forEach(function(s) {
+    var val = scores[s[0]] || 0;
+    var cls = val >= 90 ? 'green' : val >= 50 ? 'yellow' : 'red';
+    html += '<div class="stat-card"><div class="stat-label">' + s[1] + '</div><div class="stat-value ' + cls + '">' + val + '</div></div>';
+  });
+  html += '</div>';
+  if (Object.keys(metrics).length) {
+    html += '<div style="margin-top:12px;">';
+    Object.entries(metrics).forEach(function(entry) {
+      html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-muted);">' + entry[0] + '</span><span style="font-size:12px;font-weight:600;">' + entry[1] + '</span></div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderPageSpeed(data) {
+  var html = '<div class="grid-2 gap-16 mb-16">';
+  if (data.mobile) {
+    html += '<div class="card"><div class="card-header"><div class="card-title">📱 Mobile</div></div>' + renderPageSpeedPanel('mobile', data.mobile) + '</div>';
+  }
+  if (data.desktop) {
+    html += '<div class="card"><div class="card-header"><div class="card-title">🖥 Desktop</div></div>' + renderPageSpeedPanel('desktop', data.desktop) + '</div>';
+  }
+  html += '</div>';
+  if (data.ai_analysis) renderPageSpeedAI(data.ai_analysis, html);
+  else {
+    var el = document.getElementById('pagespeed-result');
+    el.innerHTML = html;
+    el.style.display = 'block';
+  }
+}
+
+function renderPageSpeedAI(p, existingHtml) {
+  var html = existingHtml + '<div class="card"><div class="card-header"><div class="card-title">Análise IA — Site</div></div><div class="card-body">';
+  if (p.diagnosis) html += '<div class="analysis-section"><h3>Diagnóstico</h3><div class="diagnosis-text">' + p.diagnosis.replace(/\n/g,'<br>') + '</div></div>';
+  var ap = safeArray(p.action_plan);
+  if (ap.length) {
+    html += '<div class="analysis-section"><h3>🎯 Plano de ação</h3>';
+    ap.forEach(function(a) {
+      html += '<div class="action-item"><div class="action-priority">' + (a.priority||'') + '</div><div><div class="action-title">' + (a.action||'') + '</div><div class="action-reason">' + (a.reason||'') + '</div>' + (a.expected_impact ? '<div class="action-impact">📈 ' + a.expected_impact + '</div>' : '') + '</div></div>';
+    });
+    html += '</div>';
+  }
+  if (p.projection) html += '<div class="analysis-section"><h3>📈 Projeção</h3><div class="diagnosis-text">' + p.projection.replace(/\n/g,'<br>') + '</div></div>';
+  html += '</div></div>';
+  var el = document.getElementById('pagespeed-result');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+// INTEGRAÇÕES
+function loadIntegrations() {
+  fetch('/api/clients/' + CLIENT_ID).then(function(r) { return r.json(); }).then(function(data) {
+    var integrations = data.integrations || [];
+    var icons = { facebook_ads:'📘', instagram_business:'📸', google_adwords:'🔍', google_analytics_4:'📊', search_console:'🌐', google_my_business:'📍', tiktok:'🎵', tiktok_ads:'🎵', facebook:'👍', linkedin:'💼', youtube:'▶️', threads:'🧵' };
+    var html = '';
+    if (!integrations.length) {
+      html = '<div class="empty-state"><div class="empty-icon">🔗</div><div class="empty-title">Nenhuma integração</div><div class="empty-text">Clique em Sincronizar Reportei</div></div>';
+    } else {
+      integrations.forEach(function(i) {
+        html += '<div class="integration-item"><div class="integration-icon">' + (icons[i.slug]||'🔌') + '</div><div class="integration-info"><div class="integration-name">' + (i.name||i.slug) + '</div><div class="integration-slug">' + i.slug + '</div></div><span class="badge ' + (i.status==='active'?'badge-green':'badge-red') + '">' + i.status + '</span><label class="toggle-switch"><input type="checkbox" ' + (i.is_monitored?'checked':'') + ' onchange="toggleMonitoring(' + i.id + ',this.checked)"><span class="toggle-slider"></span></label></div>';
+      });
+    }
+    document.getElementById('integrations-list').innerHTML = html;
+  }).catch(function() { document.getElementById('integrations-list').innerHTML = '<div class="empty-state"><div class="empty-text">Erro ao carregar</div></div>'; });
+}
+
+function toggleMonitoring(id, val) {
+  fetch('/api/clients/' + CLIENT_ID + '/integrations/' + id, { credentials: 'same-origin', method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isMonitored: val, alertsEnabled: val }) });
+}
+
+function syncReportei() {
+  var btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳ Sincronizando...';
+  fetch('/api/clients/' + CLIENT_ID + '/sync-reportei', { credentials: 'same-origin', method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      btn.textContent = '✅ ' + (data.synced||0) + ' integrações';
+      setTimeout(function() { btn.disabled = false; btn.textContent = '🔄 Sync Reportei'; }, 3000);
+      if (document.getElementById('tab-integrations').classList.contains('active')) loadIntegrations();
+    }).catch(function() { btn.disabled = false; btn.textContent = '❌ Erro'; setTimeout(function() { btn.textContent = '🔄 Sync Reportei'; }, 2000); });
+}
+
+// CHAT
+function sendChat() {
+  var input = document.getElementById('chat-input');
+  var msg = input.value.trim();
+  if (!msg) return;
+  appendMessage('user', msg);
+  input.value = '';
+  document.getElementById('btn-chat-send').disabled = true;
+  var typing = appendMessage('assistant', '<div class="spinner"></div> Pensando...');
+  fetch('/api/clients/' + CLIENT_ID + '/chat', { credentials: 'same-origin', method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, sessionId: chatSessionId }) })
+    .then(function(r) { return r.json(); }).then(function(data) {
+      chatSessionId = data.sessionId;
+      typing.querySelector('.message-bubble').innerHTML = data.response.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    }).catch(function() { typing.querySelector('.message-bubble').textContent = 'Erro ao responder.'; })
+    .finally(function() { document.getElementById('btn-chat-send').disabled = false; });
+}
+
+function appendMessage(role, content) {
+  var msgs = document.getElementById('chat-messages');
+  var div = document.createElement('div');
+  div.className = 'chat-message ' + role;
+  div.innerHTML = '<div class="message-bubble">' + content + '</div>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function handleChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
+function clearChat() { chatSessionId = null; document.getElementById('chat-messages').innerHTML = '<div class="chat-message assistant"><div class="message-bubble">Nova conversa iniciada.</div></div>'; }
+
+// HISTÓRICO
+function loadHistory() {
+  fetch('/api/clients/' + CLIENT_ID + '/analyses').then(function(r) { return r.json(); }).then(function(data) {
+    var analyses = data.analyses || [];
+    var typeLabels = { paid_traffic:'Tráfego Pago', organic:'Orgânico', seo_gmb:'SEO/GMB', cross_channel:'Cross-Channel', full:'Completa', political:'Político', pagespeed:'PageSpeed' };
+    var typeIcons = { paid_traffic:'💰', organic:'📱', seo_gmb:'🔍', cross_channel:'🔀', full:'📊', political:'⚖️', pagespeed:'🚀' };
+    var html = '';
+    if (!analyses.length) {
+      html = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sem histórico</div></div>';
+    } else {
+      analyses.forEach(function(a) {
+        html += '<div class="alert-item" style="cursor:pointer;" onclick="loadAnalysisById(\'' + a.uuid + '\')">';
+        html += '<div style="font-size:20px;">' + (typeIcons[a.analysis_type]||'📊') + '</div>';
+        html += '<div class="alert-content"><div class="alert-title">' + (typeLabels[a.analysis_type]||a.analysis_type) + '</div>';
+        html += '<div class="alert-client">' + new Date(a.period_start).toLocaleDateString('pt-BR') + ' — ' + new Date(a.period_end).toLocaleDateString('pt-BR') + '</div>';
+        if (a.diagnosis) html += '<div class="alert-message mt-4">' + a.diagnosis.substring(0,100) + '...</div>';
+        html += '</div><div class="flex gap-8 flex-shrink-0"><button class="btn btn-secondary btn-sm" onclick="loadAnalysisById(\'' + a.uuid + '\')">Ver</button><button class="btn btn-danger btn-sm" onclick="deleteAnalysis(\'' + a.uuid + '\',this)">🗑</button></div></div>';
+      });
+    }
+    document.getElementById('history-content').innerHTML = html;
+  });
+}
+
+function loadAnalysisById(uuid) {
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('tab-analysis').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
+  document.getElementById('analysis-loading').style.display = 'flex';
+  fetch('/api/analyses/' + uuid).then(function(r) { return r.json(); }).then(function(data) {
+    var a = data.analysis;
+    renderAnalysis({
+      diagnosis: a.diagnosis,
+      attention_points: safeArray(a.attention_points),
+      working_well: safeArray(a.working_well),
+      action_plan: safeArray(a.action_plan),
+      projection: a.projection,
+      channel_ranking: safeArray(a.channel_ranking),
+      funnel_analysis: a.funnel_analysis,
+    });
+  }).finally(function() { document.getElementById('analysis-loading').style.display = 'none'; });
+}
+
+// ALERTAS
+function loadAlerts() {
+  fetch('/api/alerts?clientId=' + CLIENT_ID + '&resolved=false').then(function(r) { return r.json(); }).then(function(data) {
+    var alerts = data.alerts || [];
+    var html = '';
+    if (!alerts.length) {
+      html = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Sem alertas pendentes</div></div>';
+    } else {
+      alerts.forEach(function(a) {
+        html += '<div class="alert-item"><div class="alert-dot ' + a.severity + '"></div>';
+        html += '<div class="alert-content"><div class="alert-title">' + a.title + '</div>';
+        html += '<div class="alert-message">' + a.message + '</div>';
+        if (a.ai_diagnosis) html += '<div class="alert-ai">📋 ' + a.ai_diagnosis + '</div>';
+        if (a.ai_action) html += '<div class="alert-action">🎯 ' + a.ai_action + '</div>';
+        html += '</div><button class="btn btn-success btn-sm" onclick="resolveAlert(' + a.id + ',this)">✓</button></div>';
+      });
+    }
+    document.getElementById('client-alerts-list').innerHTML = html;
+  });
+}
+
+function deleteAnalysis(uuid, btn) {
+  if (!confirm('Deletar esta análise do histórico?')) return;
+  btn.disabled = true;
+  fetch('/api/analyses/' + uuid, { credentials: 'same-origin', method: 'DELETE' }).then(function() { loadHistory(); }).catch(function() { btn.disabled = false; });
+}
+
+function resolveAlert(id, btn) {
+  btn.disabled = true;
+  fetch('/api/alerts/' + id + '/resolve', { credentials: 'same-origin', method: 'PUT' }).then(function() { btn.closest('.alert-item').remove(); });
+}
+</script>

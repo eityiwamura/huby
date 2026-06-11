@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório — <%= report.title %></title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 32px; background: white; color: #1a1a2e; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 3px solid #5b6ef5; }
+    .logo { font-size: 24px; font-weight: 700; color: #5b6ef5; }
+    .client-name { font-size: 20px; font-weight: 600; }
+    .period { font-size: 13px; color: #6b7394; margin-top: 4px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+    .kpi { background: #f8f9ff; border: 1px solid #e0e3ff; border-radius: 8px; padding: 16px; text-align: center; }
+    .kpi-label { font-size: 11px; color: #6b7394; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .kpi-value { font-size: 24px; font-weight: 700; color: #5b6ef5; }
+    .section { margin-bottom: 28px; }
+    .section-title { font-size: 15px; font-weight: 600; color: #1a1a2e; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e0e3ff; }
+    .diagnosis { font-size: 13px; line-height: 1.7; color: #333; }
+    .action { display: flex; gap: 12px; padding: 12px; background: #f8f9ff; border-radius: 6px; margin-bottom: 8px; }
+    .action-num { width: 24px; height: 24px; background: #5b6ef5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .action-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+    .action-reason { font-size: 12px; color: #6b7394; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e0e3ff; font-size: 11px; color: #6b7394; text-align: center; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">⚡ Huby</div>
+    <div>
+      <div class="client-name"><%= report.title %></div>
+      <div class="period"><%= new Date(report.period_start).toLocaleDateString('pt-BR') %> a <%= new Date(report.period_end).toLocaleDateString('pt-BR') %></div>
+    </div>
+  </div>
+
+  <% if (report.report_data && report.report_data.kpis && report.report_data.kpis.length) { %>
+  <div class="kpis">
+    <% report.report_data.kpis.forEach(function(k) { %>
+    <div class="kpi">
+      <div class="kpi-label"><%= k.label %></div>
+      <div class="kpi-value"><%= k.value %></div>
+    </div>
+    <% }) %>
+  </div>
+  <% } %>
+
+  <% if (analysis) { %>
+  <% if (analysis.diagnosis) { %>
+  <div class="section">
+    <div class="section-title">📋 Diagnóstico</div>
+    <div class="diagnosis"><%= analysis.diagnosis %></div>
+  </div>
+  <% } %>
+
+  <% var actionPlan = analysis.action_plan; %>
+  <% if (actionPlan && actionPlan.length) { %>
+  <div class="section">
+    <div class="section-title">🎯 Plano de ação</div>
+    <% actionPlan.slice(0,5).forEach(function(a) { %>
+    <div class="action">
+      <div class="action-num"><%= a.priority %></div>
+      <div>
+        <div class="action-title"><%= a.action %></div>
+        <div class="action-reason"><%= a.reason %></div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+  <% } %>
+
+  <% if (analysis.projection) { %>
+  <div class="section">
+    <div class="section-title">📈 Projeção</div>
+    <div class="diagnosis"><%= analysis.projection %></div>
+  </div>
+  <% } %>
+  <% } %>
+
+  <div class="footer">
+    Relatório gerado por Huby — <%= new Date().toLocaleDateString('pt-BR') %> | Dados coletados via Reportei API
+  </div>
+
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>

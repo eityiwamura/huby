@@ -1,0 +1,240 @@
+<% pageTitle = 'Configurações'; activePage = 'settings'; %>
+
+<div class="topbar">
+  <div class="topbar-title">Configurações</div>
+</div>
+
+<div class="page-content">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-users', this)">👥 Usuários</button>
+    <button class="tab-btn" onclick="switchTab('tab-agency', this)">🏢 Agência</button>
+    <button class="tab-btn" onclick="switchTab('tab-apis', this)">🔌 APIs</button>
+  </div>
+
+  <!-- USUÁRIOS -->
+  <div class="tab-content active" id="tab-users">
+    <div class="card mb-16">
+      <div class="card-header">
+        <div class="card-title">Usuários do sistema</div>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-new-user').style.display='flex'">+ Novo usuário</button>
+      </div>
+      <div id="users-list">
+        <div class="loading-overlay"><div class="spinner"></div> Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AGÊNCIA -->
+  <div class="tab-content" id="tab-agency">
+    <div class="card" style="max-width:560px;">
+      <div class="card-header"><div class="card-title">Perfil da agência</div></div>
+      <div class="card-body">
+        <% if (typeof successMsg !== 'undefined' && successMsg) { %>
+          <div style="background:var(--green-dim);border:1px solid var(--green);color:var(--green);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;"><%= successMsg %></div>
+        <% } %>
+        <form method="POST" action="/settings/agency">
+          <div class="form-group">
+            <label class="form-label">Nome da agência</label>
+            <input type="text" name="agency_name" class="form-input" value="<%= agency.agency_name || '' %>">
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL do logo (link externo)</label>
+            <input type="text" name="logo_url" class="form-input" value="<%= agency.logo_url || '' %>" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cor principal</label>
+            <input type="color" name="primary_color" class="form-input" value="<%= agency.primary_color || '#5b6ef5' %>" style="height:40px;padding:4px;">
+          </div>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- APIs -->
+  <div class="tab-content" id="tab-apis">
+    <div class="card" style="max-width:560px;">
+      <div class="card-header"><div class="card-title">Configurações de APIs</div></div>
+      <div class="card-body">
+        <form method="POST" action="/settings/apis">
+          <div class="form-group">
+            <label class="form-label">Token Reportei</label>
+            <input type="password" name="reportei_token" class="form-input" value="<%= agency.reportei_token ? '••••••••' : '' %>" placeholder="Deixe em branco para manter">
+            <div class="form-hint">Token da API v2 do Reportei</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Anthropic API Key</label>
+            <input type="password" name="anthropic_api_key" class="form-input" placeholder="Deixe em branco para manter">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Evolution API URL</label>
+            <input type="text" name="evolution_api_url" class="form-input" value="<%= agency.evolution_api_url || '' %>">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Evolution API Key</label>
+            <input type="password" name="evolution_api_key" class="form-input" placeholder="Deixe em branco para manter">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Evolution Instância</label>
+            <input type="text" name="evolution_instance" class="form-input" value="<%= agency.evolution_instance || '' %>">
+          </div>
+          <button type="submit" class="btn btn-primary">Salvar APIs</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO USUÁRIO -->
+<div id="modal-new-user" style="display:none;" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Novo usuário</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').style.display='none'">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Nome *</label>
+          <input type="text" class="form-input" id="new-user-name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail *</label>
+          <input type="email" class="form-input" id="new-user-email">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Senha inicial *</label>
+          <input type="text" class="form-input" id="new-user-password" placeholder="Será solicitado trocar no 1º acesso">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" id="new-user-type" onchange="toggleClientSelect(this.value)">
+            <option value="agency">👥 Equipe da agência</option>
+            <option value="client">🏢 Acesso do cliente</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="agency-role-group">
+        <label class="form-label">Papel na agência</label>
+        <select class="form-select" id="new-user-role">
+          <option value="analyst">Analista</option>
+          <option value="manager">Gerente</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="form-group" id="client-select-group" style="display:none;">
+        <label class="form-label">Cliente vinculado *</label>
+        <select class="form-select" id="new-user-client">
+          <option value="">Carregando...</option>
+        </select>
+        <div class="form-hint">Este usuário só terá acesso aos dados deste cliente</div>
+      </div>
+      <div class="form-group" id="client-access-group">
+        <label class="form-label">Acesso a clientes (vazio = todos)</label>
+        <div id="clients-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:160px;overflow-y:auto;padding:8px;background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-sm);">
+          <div class="loading-overlay" style="padding:20px;"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="createUser()" id="btn-create-user">Criar usuário</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function toggleClientSelect(val) {
+  document.getElementById('client-select-group').style.display = val === 'client' ? 'block' : 'none';
+  document.getElementById('agency-role-group').style.display = val === 'client' ? 'none' : 'block';
+  document.getElementById('client-access-group').style.display = val === 'client' ? 'none' : 'block';
+}
+
+// Carregar lista de usuários
+fetch('/api/settings/users').then(function(r) { return r.json(); }).then(function(data) {
+  var users = data.users || [];
+  var roleLabel = { admin: '🔴 Admin', manager: '🟡 Gerente', analyst: '🟢 Analista' };
+  var html = '';
+  if (!users.length) {
+    html = '<div class="empty-state"><div class="empty-text">Nenhum usuário</div></div>';
+  } else {
+    users.forEach(function(u) {
+      html += '<div class="alert-item">';
+      html += '<div class="avatar" style="flex-shrink:0;">' + u.name.charAt(0).toUpperCase() + '</div>';
+      html += '<div class="alert-content"><div class="alert-title">' + u.name + '</div>';
+      html += '<div class="alert-client">' + u.email + '</div>';
+      html += '<div class="mt-4"><span class="badge ' + (u.role==='admin'?'badge-red':u.role==='manager'?'badge-yellow':'badge-green') + '">' + (roleLabel[u.role]||u.role) + '</span>';
+      if (u.user_type === 'client') html += ' <span class="badge badge-accent">Cliente</span>';
+      html += '</div></div>';
+      html += '<div class="flex gap-8">';
+      if (u.is_active) html += '<button class="btn btn-danger btn-sm" onclick="toggleUser(' + u.id + ', false, this)">Desativar</button>';
+      else html += '<button class="btn btn-success btn-sm" onclick="toggleUser(' + u.id + ', true, this)">Ativar</button>';
+      html += '</div></div>';
+    });
+  }
+  document.getElementById('users-list').innerHTML = html;
+});
+
+// Carregar clientes para o modal
+fetch('/api/clients').then(function(r) { return r.json(); }).then(function(data) {
+  var clients = data.clients || [];
+  var checkboxes = '';
+  clients.forEach(function(c) {
+    checkboxes += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" value="' + c.id + '" class="client-checkbox"> ' + c.name + '</label>';
+  });
+  document.getElementById('clients-checkboxes').innerHTML = checkboxes || '<div style="font-size:12px;color:var(--text-muted);padding:8px;">Nenhum cliente</div>';
+
+  var select = document.getElementById('new-user-client');
+  select.innerHTML = '<option value="">Selecione o cliente...</option>';
+  clients.forEach(function(c) {
+    select.innerHTML += '<option value="' + c.id + '">' + c.name + '</option>';
+  });
+});
+
+function toggleUser(id, active, btn) {
+  btn.disabled = true;
+  fetch('/api/settings/users/' + id, { credentials: 'same-origin', method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: active }) })
+    .then(function() { location.reload(); });
+}
+
+function createUser() {
+  var name = document.getElementById('new-user-name').value.trim();
+  var email = document.getElementById('new-user-email').value.trim();
+  var password = document.getElementById('new-user-password').value.trim();
+  var userType = document.getElementById('new-user-type').value;
+  var role = document.getElementById('new-user-role').value;
+  var clientId = document.getElementById('new-user-client').value;
+
+  if (!name || !email || !password) { alert('Preencha nome, e-mail e senha'); return; }
+  if (userType === 'client' && !clientId) { alert('Selecione o cliente vinculado'); return; }
+
+  var clientAccess = [];
+  if (userType === 'agency') {
+    document.querySelectorAll('.client-checkbox:checked').forEach(function(cb) { clientAccess.push(parseInt(cb.value)); });
+  }
+
+  var btn = document.getElementById('btn-create-user');
+  btn.disabled = true; btn.textContent = 'Criando...';
+
+  fetch('/api/settings/users', {
+    credentials: 'same-origin', method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, email: email, password: password, role: role, userType: userType, clientAccess: clientAccess, clientId: clientId || null })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.error) throw new Error(data.error);
+    document.getElementById('modal-new-user').style.display = 'none';
+    location.reload();
+  }).catch(function(err) {
+    alert('Erro: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Criar usuário';
+  });
+}
+</script>

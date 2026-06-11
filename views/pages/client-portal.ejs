@@ -1,0 +1,138 @@
+<% pageTitle = 'Portal do Cliente'; %>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= client.name %> — Portal</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div style="min-height:100vh;background:var(--bg);">
+  <div style="background:var(--bg-card);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:var(--accent);">⚡ Huby</div>
+      <div style="font-size:11px;color:var(--text-muted);"><%= client.name %></div>
+    </div>
+    <form action="/logout" method="POST">
+      <button type="submit" class="btn btn-secondary btn-sm">Sair</button>
+    </form>
+  </div>
+
+  <div style="padding:24px;max-width:900px;margin:0 auto;">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('tab-reports', this)">📊 Relatórios</button>
+      <button class="tab-btn" onclick="switchTab('tab-analysis', this)">🤖 Análises</button>
+      <button class="tab-btn" onclick="switchTab('tab-chat', this)">💬 Chat IA</button>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div class="tab-content active" id="tab-reports">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Relatórios do período</div></div>
+        <div id="portal-reports" class="card-body">
+          <div class="loading-overlay"><div class="spinner"></div> Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANÁLISES -->
+    <div class="tab-content" id="tab-analysis">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Análises geradas</div></div>
+        <div id="portal-analyses" class="card-body">
+          <div class="loading-overlay"><div class="spinner"></div> Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="tab-content" id="tab-chat">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Chat com IA — seu especialista de marketing</div></div>
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-message assistant">
+              <div class="message-bubble">Olá! Sou seu especialista de marketing digital. Posso responder dúvidas sobre sua performance, campanhas e estratégias. Como posso ajudar?</div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="chat-input" id="chat-input" rows="1" placeholder="Faça sua pergunta..." onkeydown="handleKey(event)"></textarea>
+            <button class="btn btn-primary" onclick="sendMsg()" id="btn-send">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var CLIENT_ID = <%= client.id %>;
+var chatSessionId = null;
+
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabId === 'tab-analysis') loadAnalyses();
+}
+
+// Carregar relatórios
+fetch('/api/reports/saved?clientId=' + CLIENT_ID).then(function(r) { return r.json(); }).then(function(data) {
+  var reports = data.reports || [];
+  var html = '';
+  if (!reports.length) {
+    html = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Nenhum relatório disponível ainda</div></div>';
+  } else {
+    reports.forEach(function(r) {
+      html += '<div class="alert-item"><div style="font-size:20px;">📊</div><div class="alert-content"><div class="alert-title">' + r.title + '</div><div class="alert-client">' + new Date(r.period_start).toLocaleDateString('pt-BR') + ' — ' + new Date(r.period_end).toLocaleDateString('pt-BR') + '</div></div><a href="/reports/pdf/' + r.uuid + '" target="_blank" class="btn btn-secondary btn-sm">Ver PDF</a></div>';
+    });
+  }
+  document.getElementById('portal-reports').innerHTML = html;
+});
+
+function loadAnalyses() {
+  fetch('/api/clients/' + CLIENT_ID + '/analyses').then(function(r) { return r.json(); }).then(function(data) {
+    var analyses = data.analyses || [];
+    var typeLabels = { paid_traffic:'Tráfego Pago', organic:'Orgânico', seo_gmb:'SEO/GMB', cross_channel:'Visão Geral', full:'Completa' };
+    var html = '';
+    if (!analyses.length) {
+      html = '<div class="empty-state"><div class="empty-icon">🤖</div><div class="empty-title">Nenhuma análise disponível ainda</div></div>';
+    } else {
+      analyses.slice(0, 10).forEach(function(a) {
+        html += '<div class="alert-item"><div class="alert-content"><div class="alert-title">' + (typeLabels[a.analysis_type]||a.analysis_type) + '</div><div class="alert-client">' + new Date(a.period_start).toLocaleDateString('pt-BR') + ' — ' + new Date(a.period_end).toLocaleDateString('pt-BR') + '</div>' + (a.diagnosis ? '<div class="alert-message mt-4">' + a.diagnosis.substring(0,150) + '...</div>' : '') + '</div><div class="text-sm text-muted">' + new Date(a.created_at).toLocaleDateString('pt-BR') + '</div></div>';
+      });
+    }
+    document.getElementById('portal-analyses').innerHTML = html;
+  });
+}
+
+function sendMsg() {
+  var input = document.getElementById('chat-input');
+  var msg = input.value.trim();
+  if (!msg) return;
+  appendMsg('user', msg);
+  input.value = '';
+  document.getElementById('btn-send').disabled = true;
+  var typing = appendMsg('assistant', '<div class="spinner"></div> Pensando...');
+  fetch('/api/clients/' + CLIENT_ID + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, sessionId: chatSessionId }) })
+    .then(function(r) { return r.json(); }).then(function(data) {
+      chatSessionId = data.sessionId;
+      typing.querySelector('.message-bubble').innerHTML = data.response.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    }).catch(function() { typing.querySelector('.message-bubble').textContent = 'Erro ao responder.'; })
+    .finally(function() { document.getElementById('btn-send').disabled = false; });
+}
+function appendMsg(role, content) {
+  var msgs = document.getElementById('chat-messages');
+  var div = document.createElement('div');
+  div.className = 'chat-message ' + role;
+  div.innerHTML = '<div class="message-bubble">' + content + '</div>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
+</script>
+</body>
+</html>

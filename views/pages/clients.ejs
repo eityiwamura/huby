@@ -1,0 +1,47 @@
+<% pageTitle = 'Clientes'; activePage = 'clients'; %>
+
+<div class="topbar">
+  <div class="topbar-title">Clientes</div>
+  <div class="topbar-actions">
+    <input type="text" class="form-input" style="width:200px;" placeholder="Buscar..." oninput="filterClients(this.value)">
+    <a href="/clients/new" class="btn btn-primary btn-sm">+ Novo cliente</a>
+  </div>
+</div>
+
+<div class="page-content">
+  <div id="clients-container">
+    <% if (clients.length === 0) { %>
+      <div class="empty-state">
+        <div class="empty-icon">👥</div>
+        <div class="empty-title">Nenhum cliente</div>
+        <div class="empty-text"><a href="/clients/new" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Adicionar primeiro cliente</a></div>
+      </div>
+    <% } else { %>
+      <div class="clients-grid" id="clients-grid">
+        <% clients.forEach(function(c) { %>
+          <a href="/clients/<%= c.id %>" class="client-card sector-<%= c.sector %>">
+            <div class="client-name"><%= c.name %></div>
+            <div class="client-sector"><%= c.sector %></div>
+            <div class="client-meta">
+              <% if (parseInt(c.active_integrations) > 0) { %>
+                <span class="badge badge-accent"><%= c.active_integrations %> redes</span>
+              <% } %>
+              <% if (c.city) { %>
+                <span class="badge badge-muted"><%= c.city %></span>
+              <% } %>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+function filterClients(q) {
+  document.querySelectorAll('#clients-grid .client-card').forEach(function(c) {
+    var name = c.querySelector('.client-name');
+    if (name) c.style.display = name.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+</script>
